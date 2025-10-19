@@ -224,6 +224,16 @@
             color: #999;
             padding: 20px;
         }
+
+        .demo-mode {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -231,6 +241,10 @@
         <!-- Login Screen -->
         <div class="login-screen">
             <h1>Poll Login</h1>
+            <div class="demo-mode">
+                Demo Mode (No Firebase)<br>
+                Try: user1 / password123
+            </div>
             <form id="loginForm">
                 <div class="form-group">
                     <label for="username">Username</label>
@@ -289,10 +303,14 @@
         
         // ========== FIREBASE CONFIG (ENTER ONCE) ==========
         const FIREBASE_CONFIG = {
-            apiKey: '',  // Enter your Firebase API Key here
-            authDomain: '',  // Enter your Firebase Auth Domain here
-            databaseURL: '',  // Enter your Firebase Database URL here
-            projectId: ''  // Enter your Firebase Project ID here
+  apiKey: "AIzaSyCYUsOeSfW3IPuXy67Rlwk6P6VmCuRyM74",
+
+  authDomain: "poll-site-2db88.firebaseapp.com",
+
+  databaseURL: "https://poll-site-2db88-default-rtdb.firebaseio.com",
+
+  projectId: "poll-site-2db88",
+
         };
         // ========== END CONFIGURATION ==========
         
@@ -301,35 +319,42 @@
         let votes = {};
         let voters = {};
         
-        // Auto-initialize Firebase
-        if (FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.authDomain && FIREBASE_CONFIG.databaseURL && FIREBASE_CONFIG.projectId) {
-            firebase.initializeApp(FIREBASE_CONFIG);
-            db = firebase.database();
-            
-            // Initialize Firebase data
-            db.ref('poll').once('value', (snapshot) => {
-                if (!snapshot.exists()) {
-                    db.ref('poll').set({
-                        votes: votes,
-                        voters: voters
-                    });
-                }
-            });
-            
-            // Listen for real-time updates
-            db.ref('poll').on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    votes = data.votes || votes;
-                    voters = data.voters || voters;
-                    if (currentUser) {
-                        renderPoll();
-                    }
-                }
-            });
+        // Initialize Firebase if config is provided
+        const hasFirebaseConfig = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.authDomain && FIREBASE_CONFIG.databaseURL && FIREBASE_CONFIG.projectId;
         
-            document.querySelector('.login-screen').classList.add('active');
+        if (hasFirebaseConfig) {
+            try {
+                firebase.initializeApp(FIREBASE_CONFIG);
+                db = firebase.database();
+                
+                // Initialize Firebase data
+                db.ref('poll').once('value', (snapshot) => {
+                    if (!snapshot.exists()) {
+                        db.ref('poll').set({
+                            votes: {},
+                            voters: {}
+                        });
+                    }
+                });
+                
+                // Listen for real-time updates
+                db.ref('poll').on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        votes = data.votes || {};
+                        voters = data.voters || {};
+                        if (currentUser) {
+                            renderPoll();
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Firebase initialization error:', error);
+            }
         }
+        
+        // Show login screen
+        document.querySelector('.login-screen').classList.add('active');
         
         // Login handler
         document.getElementById('loginForm').addEventListener('submit', function(e) {
@@ -350,7 +375,8 @@
         
         function getUserVote() {
             for (let idx in voters) {
-                if (voters[idx] && voters[idx].includes(currentUser)) {
+                const voterArray = voters[idx];
+                if (Array.isArray(voterArray) && voterArray.includes(currentUser)) {
                     return parseInt(idx);
                 }
             }
@@ -414,18 +440,29 @@
                 return;
             }
             
-            // Update Firebase
+            // Update local state
             const newVotes = { ...votes };
             newVotes[index] = (newVotes[index] || 0) + 1;
             
             const newVoters = { ...voters };
             newVoters[index] = newVoters[index] || [];
+            if (!Array.isArray(newVoters[index])) {
+                newVoters[index] = [];
+            }
             newVoters[index].push(currentUser);
             
-            db.ref('poll').set({
-                votes: newVotes,
-                voters: newVoters
-            });
+            votes = newVotes;
+            voters = newVoters;
+            
+            // Update Firebase if available
+            if (db) {
+                db.ref('poll').set({
+                    votes: newVotes,
+                    voters: newVoters
+                });
+            }
+            
+            renderPoll();
             
             const msg = document.getElementById('successMsg');
             msg.style.display = 'block';
@@ -456,7 +493,7 @@
             
             POLL_OPTIONS.forEach((opt, idx) => {
                 const voterList = voters[idx] || [];
-                if (voterList.length > 0) {
+                if (Array.isArray(voterList) && voterList.length > 0) {
                     html += `<div style="margin-bottom: 15px;">
                         <strong style="color: #333;">${opt.label}</strong>
                         <div class="voters-list">
