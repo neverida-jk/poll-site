@@ -228,9 +228,8 @@
 </head>
 <body>
     <div class="container">
-        
         <!-- Login Screen -->
-        <div class="login-screen active">
+        <div class="login-screen">
             <h1>Poll Login</h1>
             <form id="loginForm">
                 <div class="form-group">
@@ -302,12 +301,6 @@
         let votes = {};
         let voters = {};
         
-        // Initialize votes structure
-        POLL_OPTIONS.forEach((opt, idx) => {
-            votes[idx] = 0;
-            voters[idx] = [];
-        });
-        
         // Auto-initialize Firebase
         if (FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.authDomain && FIREBASE_CONFIG.databaseURL && FIREBASE_CONFIG.projectId) {
             firebase.initializeApp(FIREBASE_CONFIG);
@@ -334,7 +327,7 @@
                     }
                 }
             });
-            
+        
             document.querySelector('.login-screen').classList.add('active');
         }
         
