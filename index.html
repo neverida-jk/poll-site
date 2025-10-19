@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poll App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        .login-screen, .poll-screen {
+            display: none;
+        }
+        
+        .login-screen.active, .poll-screen.active {
+            display: block;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .error {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 10px;
+            text-align: center;
+        }
+        
+        .poll-question {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .option {
+            margin-bottom: 15px;
+        }
+        
+        .option-btn {
+            width: 100%;
+            text-align: left;
+            padding: 15px;
+            background: #f5f5f5;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .option-btn:hover:not(:disabled) {
+            background: #e8f0ff;
+            border-color: #667eea;
+        }
+        
+        .option-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .option-label {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .option-count {
+            color: #999;
+            font-size: 14px;
+        }
+        
+        .success-msg {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .logout-btn {
+            background: #95a5a6;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        
+        .logout-btn:hover {
+            background: #7f8c8d;
+        }
+        
+        .stats {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Login Screen -->
+        <div class="login-screen active">
+            <h1>Poll Login</h1>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit">Login</button>
+                <div class="error" id="loginError"></div>
+            </form>
+        </div>
+        
+        <!-- Poll Screen -->
+        <div class="poll-screen">
+            <h1>Quick Poll</h1>
+            <div id="successMsg" class="success-msg" style="display: none;">
+                ✓ Your vote has been recorded!
+            </div>
+            <div class="poll-question">What's your favorite choice?</div>
+            
+            <div id="optionsContainer"></div>
+            
+            <div class="stats">
+                <strong>Results:</strong>
+                <div id="statsContainer"></div>
+            </div>
+            
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+    
+    <script>
+        // ========== CONFIGURATION ==========
+        // Edit these values to customize the poll
+        
+        const VALID_USERS = {
+            'user1': 'password123',
+            'user2': 'pass456',
+            'admin': 'admin123'
+        };
+        
+        const POLL_OPTIONS = [
+            { label: 'Option A', maxCap: 5 },
+            { label: 'Option B', maxCap: 5 },
+            { label: 'Option C', maxCap: null } // null = no cap
+        ];
+        
+        // ========== END CONFIGURATION ==========
+        
+        let votes = {};
+        let userVoted = false;
+        let currentUser = null;
+        
+        // Initialize votes
+        POLL_OPTIONS.forEach((opt, idx) => {
+            votes[idx] = 0;
+        });
+        
+        // Login handler
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (VALID_USERS[username] === password) {
+                currentUser = username;
+                showPollScreen();
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+                document.getElementById('loginError').textContent = '';
+            } else {
+                document.getElementById('loginError').textContent = 'Invalid username or password';
+            }
+        });
+        
+        function showPollScreen() {
+            document.querySelector('.login-screen').classList.remove('active');
+            document.querySelector('.poll-screen').classList.add('active');
+            renderPoll();
+        }
+        
+        function renderPoll() {
+            const container = document.getElementById('optionsContainer');
+            container.innerHTML = '';
+            
+            POLL_OPTIONS.forEach((opt, idx) => {
+                const isCapped = votes[idx] >= opt.maxCap && opt.maxCap !== null;
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.disabled = isCapped;
+                btn.onclick = () => vote(idx);
+                
+                const capText = opt.maxCap ? ` (${votes[idx]}/${opt.maxCap})` : ` (${votes[idx]})`;
+                
+                btn.innerHTML = `
+                    <span class="option-label">${opt.label}</span>
+                    <span class="option-count">${capText}</span>
+                `;
+                
+                container.appendChild(btn);
+            });
+            
+            updateStats();
+        }
+        
+        function vote(index) {
+            const opt = POLL_OPTIONS[index];
+            
+            // Check if cap is reached
+            if (opt.maxCap !== null && votes[index] >= opt.maxCap) {
+                alert('This option has reached its maximum votes!');
+                return;
+            }
+            
+            // Check if user already voted
+            if (userVoted) {
+                alert('You have already voted!');
+                return;
+            }
+            
+            votes[index]++;
+            userVoted = true;
+            
+            // Show success message
+            const msg = document.getElementById('successMsg');
+            msg.style.display = 'block';
+            setTimeout(() => {
+                msg.style.display = 'none';
+            }, 3000);
+            
+            renderPoll();
+        }
+        
+        function updateStats() {
+            const statsContainer = document.getElementById('statsContainer');
+            const total = Object.values(votes).reduce((a, b) => a + b, 0);
+            
+            statsContainer.innerHTML = POLL_OPTIONS.map((opt, idx) => {
+                const percentage = total === 0 ? 0 : Math.round((votes[idx] / total) * 100);
+                return `
+                    <div class="stat-item">
+                        <span>${opt.label}</span>
+                        <span>${votes[idx]} votes (${percentage}%)</span>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function logout() {
+            currentUser = null;
+            userVoted = false;
+            votes = {};
+            POLL_OPTIONS.forEach((opt, idx) => {
+                votes[idx] = 0;
+            });
+            document.querySelector('.login-screen').classList.add('active');
+            document.querySelector('.poll-screen').classList.remove('active');
+        }
+    </script>
+</body>
+</html>
