@@ -25,16 +25,18 @@
             background: white;
             border-radius: 10px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-            max-width: 500px;
+            max-width: 600px;
             width: 100%;
             padding: 40px;
+            max-height: 90vh;
+            overflow-y: auto;
         }
         
-        .login-screen, .poll-screen {
+        .login-screen, .poll-screen, .setup-screen {
             display: none;
         }
         
-        .login-screen.active, .poll-screen.active {
+        .login-screen.active, .poll-screen.active, .setup-screen.active {
             display: block;
         }
         
@@ -42,6 +44,15 @@
             color: #333;
             margin-bottom: 30px;
             text-align: center;
+        }
+        
+        h2 {
+            color: #555;
+            font-size: 18px;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
         }
         
         .form-group {
@@ -55,16 +66,17 @@
             font-weight: 500;
         }
         
-        input[type="text"], input[type="password"] {
+        input {
             width: 100%;
             padding: 12px;
             border: 2px solid #ddd;
             border-radius: 5px;
             font-size: 16px;
             transition: border-color 0.3s;
+            font-family: monospace;
         }
         
-        input[type="text"]:focus, input[type="password"]:focus {
+        input:focus {
             outline: none;
             border-color: #667eea;
         }
@@ -97,15 +109,21 @@
             text-align: center;
         }
         
+        .info-text {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
         .poll-question {
             color: #333;
             font-size: 20px;
             margin-bottom: 30px;
             text-align: center;
-        }
-        
-        .option {
-            margin-bottom: 15px;
         }
         
         .option-btn {
@@ -120,6 +138,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 12px;
         }
         
         .option-btn:hover:not(:disabled) {
@@ -162,7 +181,7 @@
         }
         
         .stats {
-            margin-top: 30px;
+            margin-top: 25px;
             padding-top: 20px;
             border-top: 2px solid #eee;
         }
@@ -172,13 +191,85 @@
             justify-content: space-between;
             margin-bottom: 10px;
             color: #666;
+            font-size: 14px;
+        }
+        
+        .voters-list {
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 13px;
+        }
+        
+        .voter-item {
+            padding: 6px 0;
+            color: #555;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .voter-item:last-child {
+            border-bottom: none;
+        }
+        
+        .voter-name {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .already-voted {
+            background: #fff3cd;
+            color: #856404;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #999;
+            padding: 20px;
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Setup Screen -->
+        <div class="setup-screen active">
+            <h1>⚙️ Firebase Setup</h1>
+            <div class="info-text">
+                <strong>Step 1:</strong> Go to <a href="https://console.firebase.google.com" target="_blank" style="color: #1565c0; text-decoration: underline;">Firebase Console</a><br>
+                <strong>Step 2:</strong> Create a new project<br>
+                <strong>Step 3:</strong> Enable Realtime Database (Start in test mode)<br>
+                <strong>Step 4:</strong> Copy your config and paste below
+            </div>
+            <form id="setupForm">
+                <div class="form-group">
+                    <label for="apiKey">API Key</label>
+                    <input type="text" id="apiKey" placeholder="AIza..." required>
+                </div>
+                <div class="form-group">
+                    <label for="authDomain">Auth Domain</label>
+                    <input type="text" id="authDomain" placeholder="yourproject.firebaseapp.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="databaseURL">Database URL</label>
+                    <input type="text" id="databaseURL" placeholder="https://yourproject.firebaseio.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="projectId">Project ID</label>
+                    <input type="text" id="projectId" placeholder="yourproject" required>
+                </div>
+                <button type="submit">Connect Firebase</button>
+                <div class="error" id="setupError"></div>
+            </form>
+        </div>
+        
         <!-- Login Screen -->
-        <div class="login-screen active">
+        <div class="login-screen">
             <h1>Poll Login</h1>
             <form id="loginForm">
                 <div class="form-group">
@@ -200,23 +291,30 @@
             <div id="successMsg" class="success-msg" style="display: none;">
                 ✓ Your vote has been recorded!
             </div>
+            <div id="alreadyVoted" class="already-voted" style="display: none;">
+                You have already voted for: <strong id="votedOption"></strong>
+            </div>
             <div class="poll-question">What's your favorite choice?</div>
             
             <div id="optionsContainer"></div>
             
             <div class="stats">
-                <strong>Results:</strong>
+                <h2>📊 Results</h2>
                 <div id="statsContainer"></div>
+                
+                <h2>👥 Voters</h2>
+                <div id="votersContainer"></div>
             </div>
             
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </div>
     
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
+    
     <script>
         // ========== CONFIGURATION ==========
-        // Edit these values to customize the poll
-        
         const VALID_USERS = {
             'user1': 'password123',
             'user2': 'pass456',
@@ -226,19 +324,64 @@
         const POLL_OPTIONS = [
             { label: 'Option A', maxCap: 5 },
             { label: 'Option B', maxCap: 5 },
-            { label: 'Option C', maxCap: null } // null = no cap
+            { label: 'Option C', maxCap: null }
         ];
         
+        // ========== FIREBASE CONFIG (ENTER ONCE) ==========
+        const FIREBASE_CONFIG = {
+              apiKey: "AIzaSyCYUsOeSfW3IPuXy67Rlwk6P6VmCuRyM74",
+
+  authDomain: "poll-site-2db88.firebaseapp.com",
+
+  databaseURL: "https://poll-site-2db88-default-rtdb.firebaseio.com",
+
+  projectId: "poll-site-2db88",
+
+        };
         // ========== END CONFIGURATION ==========
         
-        let votes = {};
-        let userVoted = false;
+        let db = null;
         let currentUser = null;
+        let votes = {};
+        let voters = {};
         
-        // Initialize votes
+        // Initialize votes structure
         POLL_OPTIONS.forEach((opt, idx) => {
             votes[idx] = 0;
+            voters[idx] = [];
         });
+        
+        // Auto-initialize Firebase
+        if (FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.authDomain && FIREBASE_CONFIG.databaseURL && FIREBASE_CONFIG.projectId) {
+            firebase.initializeApp(FIREBASE_CONFIG);
+            db = firebase.database();
+            
+            // Initialize Firebase data
+            db.ref('poll').once('value', (snapshot) => {
+                if (!snapshot.exists()) {
+                    db.ref('poll').set({
+                        votes: votes,
+                        voters: voters
+                    });
+                }
+            });
+            
+            // Listen for real-time updates
+            db.ref('poll').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    votes = data.votes || votes;
+                    voters = data.voters || voters;
+                    if (currentUser) {
+                        renderPoll();
+                    }
+                }
+            });
+            
+            document.querySelector('.setup-screen').classList.remove('active');
+            document.querySelector('.login-screen').classList.add('active');
+        }
+        // If not configured, show setup screen
         
         // Login handler
         document.getElementById('loginForm').addEventListener('submit', function(e) {
@@ -257,6 +400,15 @@
             }
         });
         
+        function getUserVote() {
+            for (let idx in voters) {
+                if (voters[idx] && voters[idx].includes(currentUser)) {
+                    return parseInt(idx);
+                }
+            }
+            return null;
+        }
+        
         function showPollScreen() {
             document.querySelector('.login-screen').classList.remove('active');
             document.querySelector('.poll-screen').classList.add('active');
@@ -267,14 +419,25 @@
             const container = document.getElementById('optionsContainer');
             container.innerHTML = '';
             
+            const userVote = getUserVote();
+            
+            if (userVote !== null) {
+                document.getElementById('alreadyVoted').style.display = 'block';
+                document.getElementById('votedOption').textContent = POLL_OPTIONS[userVote].label;
+            } else {
+                document.getElementById('alreadyVoted').style.display = 'none';
+            }
+            
             POLL_OPTIONS.forEach((opt, idx) => {
-                const isCapped = votes[idx] >= opt.maxCap && opt.maxCap !== null;
+                const voteCount = votes[idx] || 0;
+                const isCapped = voteCount >= opt.maxCap && opt.maxCap !== null;
+                const userAlreadyVoted = userVote !== null;
                 const btn = document.createElement('button');
                 btn.className = 'option-btn';
-                btn.disabled = isCapped;
+                btn.disabled = isCapped || userAlreadyVoted;
                 btn.onclick = () => vote(idx);
                 
-                const capText = opt.maxCap ? ` (${votes[idx]}/${opt.maxCap})` : ` (${votes[idx]})`;
+                const capText = opt.maxCap ? ` (${voteCount}/${opt.maxCap})` : ` (${voteCount})`;
                 
                 btn.innerHTML = `
                     <span class="option-label">${opt.label}</span>
@@ -285,60 +448,87 @@
             });
             
             updateStats();
+            updateVoters();
         }
         
         function vote(index) {
             const opt = POLL_OPTIONS[index];
+            const voteCount = votes[index] || 0;
             
-            // Check if cap is reached
-            if (opt.maxCap !== null && votes[index] >= opt.maxCap) {
+            if (opt.maxCap !== null && voteCount >= opt.maxCap) {
                 alert('This option has reached its maximum votes!');
                 return;
             }
             
-            // Check if user already voted
-            if (userVoted) {
+            const userVote = getUserVote();
+            if (userVote !== null) {
                 alert('You have already voted!');
                 return;
             }
             
-            votes[index]++;
-            userVoted = true;
+            // Update Firebase
+            const newVotes = { ...votes };
+            newVotes[index] = (newVotes[index] || 0) + 1;
             
-            // Show success message
+            const newVoters = { ...voters };
+            newVoters[index] = newVoters[index] || [];
+            newVoters[index].push(currentUser);
+            
+            db.ref('poll').set({
+                votes: newVotes,
+                voters: newVoters
+            });
+            
             const msg = document.getElementById('successMsg');
             msg.style.display = 'block';
             setTimeout(() => {
                 msg.style.display = 'none';
             }, 3000);
-            
-            renderPoll();
         }
         
         function updateStats() {
             const statsContainer = document.getElementById('statsContainer');
-            const total = Object.values(votes).reduce((a, b) => a + b, 0);
+            const total = Object.values(votes).reduce((a, b) => (a || 0) + (b || 0), 0);
             
             statsContainer.innerHTML = POLL_OPTIONS.map((opt, idx) => {
-                const percentage = total === 0 ? 0 : Math.round((votes[idx] / total) * 100);
+                const voteCount = votes[idx] || 0;
+                const percentage = total === 0 ? 0 : Math.round((voteCount / total) * 100);
                 return `
                     <div class="stat-item">
                         <span>${opt.label}</span>
-                        <span>${votes[idx]} votes (${percentage}%)</span>
+                        <span>${voteCount} votes (${percentage}%)</span>
                     </div>
                 `;
             }).join('');
         }
         
+        function updateVoters() {
+            const votersContainer = document.getElementById('votersContainer');
+            let html = '';
+            
+            POLL_OPTIONS.forEach((opt, idx) => {
+                const voterList = voters[idx] || [];
+                if (voterList.length > 0) {
+                    html += `<div style="margin-bottom: 15px;">
+                        <strong style="color: #333;">${opt.label}</strong>
+                        <div class="voters-list">
+                            ${voterList.map(voter => `<div class="voter-item"><span class="voter-name">• ${voter}</span></div>`).join('')}
+                        </div>
+                    </div>`;
+                }
+            });
+            
+            if (html === '') {
+                html = '<p style="color: #999; font-size: 14px;">No votes yet</p>';
+            }
+            
+            votersContainer.innerHTML = html;
+        }
+        
         function logout() {
             currentUser = null;
-            userVoted = false;
-            votes = {};
-            POLL_OPTIONS.forEach((opt, idx) => {
-                votes[idx] = 0;
-            });
-            document.querySelector('.login-screen').classList.add('active');
             document.querySelector('.poll-screen').classList.remove('active');
+            document.querySelector('.login-screen').classList.add('active');
         }
     </script>
 </body>
